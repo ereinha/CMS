@@ -11,14 +11,10 @@ import torch
 from src.configs import ParticleTransformerConfig, TrainConfig
 from src.models import ParticleTransformer
 from src.engine import Trainer
-from src.utils import EarlyStopping
+from src.utils import set_seed
 from src.utils.data import JetClassDataset
 
-np.random.seed(42)
-torch.manual_seed(42)
-torch.cuda.manual_seed_all(42)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+set_seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -37,7 +33,7 @@ def dummy_dataset() -> Tuple[np.ndarray, np.ndarray, int, int, int]:
     num_particle_features = 4
     num_classes = 5
     X = np.random.randn(num_samples, num_particle_features, max_num_particles).astype(np.float32)
-    y = np.random.randint(0, num_classes, size=(num_samples,))
+    y = np.random.randint(0, num_classes, size=(num_samples, num_classes)).astype(np.float32)
 
     return X, y, num_classes, max_num_particles, num_particle_features
 
@@ -51,20 +47,12 @@ def make_model_config(**overrides: Dict) -> ParticleTransformerConfig:
         'num_cls_layers': 1,
         'num_mlp_layers': 1,
         'hidden_dim': 32,
-        'hidden_mv_channels': 8,
-        'in_s_channels': 1,
-        'out_s_channels': 1,
-        'hidden_s_channels': 1,
-        'attention': {},
-        'mlp': {},
-        'reinsert_mv_channels': None,
-        'reinsert_s_channels': None,
         'dropout': 0.1,
         'expansion_factor': 2,
         'pair_embed_dims': [16, 16],
         'max_num_particles': 128,
         'num_particle_features': 4,
-        'mask': None
+        'mask': False
     }
     default.update(overrides)
     return ParticleTransformerConfig(**default)
@@ -80,10 +68,6 @@ def make_train_config(temp_log_dir: str, **overrides: Dict) -> TrainConfig:
         'optimizer': {
             'name': 'adamw',
             'kwargs': {'lr': 1e-3}
-        },
-        'scheduler': {
-            'name': 'exponential_lr',
-            'kwargs': {'gamma': 0.95}
         },
         'num_epochs': 2,
         'start_epoch': 0,
@@ -105,10 +89,10 @@ def make_dataset(
     split_idx: int = 5,
     normalize: List[bool] = [True, False, False, True],
     norm_dict: Dict[str, List[float]] = {
-        'pT': [32.437591552734375, 63.530086517333984],
-        'eta': [-4.0474991692462936e-05, 0.6030874252319336],
-        'phi': [0.0003407818730920553, 1.2022391557693481],
-        'energy': [46.549705505371094, 97.74372100830078],
+        'pT': [92.67603302001953, 105.75433349609375],
+        'eta': [-0.00041131096077151597, 0.9181342124938965],
+        'phi': [0.00041396886808797717, 1.8135319948196411],
+        'energy': [133.9013214111328, 167.53518676757812]
     },
     mask_mode: Optional[str] = None
 ) -> JetClassDataset:
@@ -157,6 +141,7 @@ def test_trainer_train_loop_and_history(dummy_dataset: Tuple, temp_dir: str):
         train_dataset=train_set,
         val_dataset=val_set,
         test_dataset=test_set,
+        device=device,
         config=train_config
     )
 
@@ -195,6 +180,7 @@ def test_trainer_optimizer_config(dummy_dataset: Tuple, temp_dir: str):
         train_dataset=train_set,
         val_dataset=val_set,
         test_dataset=test_set,
+        device=device,
         config=train_config
     )
 
@@ -218,14 +204,22 @@ def test_trainer_callbacks_and_early_stopping(dummy_dataset: Tuple, temp_dir: st
     train_config = make_train_config(temp_dir)
 
     # EarlyStopping callback with patience=0 for immediate stop
-    early_stop = EarlyStopping(monitor='val_loss', patience=0)
+    callbacks = [{
+        'name': 'early_stopping',
+        'kwargs': {
+            'monitor': 'val_loss',
+            'mode': 'min',
+            'patience': 5
+        }
+    }]
     trainer = Trainer(
         model=model,
         train_dataset=train_set,
         val_dataset=val_set,
         test_dataset=test_set,
+        device=device,
         config=train_config,
-        callbacks=[early_stop]
+        callbacks=callbacks
     )
     history, _ = trainer.train()
 
@@ -255,6 +249,7 @@ def test_trainer_device(dummy_dataset: Tuple, temp_dir: str):
         train_dataset=train_set,
         val_dataset=val_set,
         test_dataset=test_set,
+        device=device,
         config=train_config
     )
 

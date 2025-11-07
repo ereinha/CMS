@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,7 +23,7 @@ def plot_feature_distribution(X_jets: np.ndarray) -> None:
 
 
 # Function to visualize the particle features reconstruction
-def plot_particle_reconstruction(y_true: np.ndarray, y_pred: np.ndarray) -> None:
+def plot_particle_reconstruction(y_true: np.ndarray, y_pred: np.ndarray, save_fig: Optional[str] = None) -> None:
     pT_true, eta_true, phi_true, E_true = y_true[:, 0], y_true[:, 1], y_true[:, 2], y_true[:, 3]
     pT_pred, eta_pred, phi_pred, E_pred = y_pred[:, 0], y_pred[:, 1], y_pred[:, 2], y_pred[:, 3]
 
@@ -82,11 +82,15 @@ def plot_particle_reconstruction(y_true: np.ndarray, y_pred: np.ndarray) -> None
     plt.ylim(E_min, E_max)
     
     plt.tight_layout()
-    plt.show()
+
+    if save_fig:
+        plt.savefig(save_fig, dpi=300)
+    else:
+        plt.show()
 
 
 # Function to visualize the training progress
-def plot_history(history: Dict[str, List[float]]) -> None:
+def plot_history(history: Dict[str, List[float]], save_fig: Optional[str] = None) -> None:
     plt.figure(figsize=(12, 5))
     epochs = history['epoch']
 
@@ -111,27 +115,79 @@ def plot_history(history: Dict[str, List[float]]) -> None:
     plt.grid(True)
 
     plt.tight_layout()
-    plt.show()
+
+    if save_fig:
+        plt.savefig(save_fig, dpi=300)
+    else:
+        plt.show()
+
+
+# Function to visualize the self-supervised masked model training progress
+def plot_ssl_history(history: Dict[str, List[float]], save_fig: Optional[str] = None) -> None:
+    plt.figure(figsize=(12, 5))
+    plt.plot(history['pT_loss'], label="pT_loss")
+    plt.plot(history['eta_loss'], label="eta_loss")
+    plt.plot(history['phi_loss'], label="phi_loss")
+    plt.plot(history['energy_loss'], label="energy_loss")
+    plt.plot(history['val_loss'], label="val_loss")
+    plt.title("Self-supervised Training Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    if save_fig:
+        plt.savefig(save_fig, dpi=300)
+    else:
+        plt.show()
 
 
 # Function to visualize the confusion matrix
-def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, labels: List[str]) -> None:
+def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, labels: Optional[List[str]] = None, save_fig: Optional[str] = None) -> None:
     y_true_classes = np.argmax(y_true, axis=1)
     y_pred_classes = np.argmax(y_pred, axis=1)
-    cm = confusion_matrix(y_true_classes, y_pred_classes,labels=np.arange(y_true.shape[1]))
+    cm = confusion_matrix(y_true_classes, y_pred_classes, labels=np.arange(y_true.shape[1]))
+    cm = cm / 1000
+
+    if labels is None:
+        labels = [
+            "$q/g$",  # 0
+            "$H \\to b\\bar{b}$",  # 1
+            "$H \\to c\\bar{c}$",  # 2
+            "$H \\to gg$",  # 3
+            "$H \\to 4q$",  # 4
+            "$H \\to \\ell \\nu qq'$",  # 5
+            "$Z \\to q\\bar{q}$",  # 6
+            "$W \\to qq'$",  # 7
+            "$t \\to b\\ell \\nu$",  # 8
+            "$t \\to bqq'$"  # 9
+        ]
 
     plt.figure(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='coolwarm', xticklabels=labels, yticklabels=labels)
+    sns.heatmap(
+        data=cm,
+        annot=True,
+        fmt='.1f',
+        annot_kws={'size': 8},
+        xticklabels=labels,
+        yticklabels=labels,
+        cmap='coolwarm'
+    )
     plt.yticks(rotation=0)
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
-    plt.title("Confusion Matrix")
+    plt.title("Confusion Matrix (in thousands)")
     plt.tight_layout()
-    plt.show()
+
+    if save_fig:
+        plt.savefig(save_fig, dpi=300)
+    else:
+        plt.show()
 
 
 # Function to visualize the ROC curve
-def plot_roc_curve(y_true: np.ndarray, y_pred_prob: np.ndarray) -> None:
+def plot_roc_curve(y_true: np.ndarray, y_pred_prob: np.ndarray, save_fig: Optional[str] = None) -> None:
     # Convert one-hot encoded y_true to class indices if needed
     if y_true.ndim > 1 and y_true.shape[1] > 1:
         y_true_indices = np.argmax(y_true, axis=1)
@@ -175,35 +231,8 @@ def plot_roc_curve(y_true: np.ndarray, y_pred_prob: np.ndarray) -> None:
     plt.title("Macro-Average ROC Curve")
     plt.legend(loc='lower right')
     plt.tight_layout()
-    plt.show()
 
-
-# Function to visualize pretraining loss for VICReg
-def plot_VICReg_history(history: Dict[str, List[float]]) -> None:
-    # Find the epoch where the VICReg loss is minimal
-    min_epoch = history['VICReg_loss'].index(min(history['VICReg_loss']))
-
-    plt.figure(figsize=(12, 5))
-    
-    plt.subplot(1, 2, 1)
-    plt.plot(history['variance_loss'], label="variance loss")
-    plt.plot(history['invariance_loss'], label="invariance loss")
-    plt.plot(history['covariance_loss'], label="covariance loss")
-    plt.axvline(x=min_epoch, color='black', linestyle='--', label="min VICReg loss")
-    plt.title("Pretraining Losses")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.grid(True)
-
-    plt.subplot(1, 2, 2)
-    plt.plot(history['VICReg_loss'], color='red', label="VICReg loss")
-    plt.axvline(x=min_epoch, color='black', linestyle='--', label="min VICReg loss")
-    plt.title("Total VICReg Loss")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.grid(True)
-    
-    plt.tight_layout()
-    plt.show()
+    if save_fig:
+        plt.savefig(save_fig, dpi=300)
+    else:
+        plt.show()

@@ -1,1 +1,0 @@
-# TODO: write bash script for HPC

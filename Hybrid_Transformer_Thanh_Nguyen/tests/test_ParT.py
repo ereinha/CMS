@@ -7,11 +7,9 @@ from torch import Tensor
 
 from src.models import ParticleTransformer
 from src.configs import ParticleTransformerConfig
+from src.utils import set_seed
 
-torch.manual_seed(42)
-torch.cuda.manual_seed_all(42)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
+set_seed(42)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -52,15 +50,6 @@ def make_config(**overrides: Dict) -> ParticleTransformerConfig:
         'num_cls_layers': 1,
         'num_mlp_layers': 1,
         'hidden_dim': 32,
-        'to_multivector': True,
-        'hidden_mv_channels': 8,
-        'in_s_channels': None,
-        'out_s_channels': None,
-        'hidden_s_channels': 16,
-        'attention': {},
-        'mlp': {},
-        'reinsert_mv_channels': None,
-        'reinsert_s_channels': None,
         'dropout': 0.1,
         'expansion_factor': 2,
         'pair_embed_dims': [16, 16],
